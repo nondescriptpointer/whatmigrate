@@ -1,17 +1,14 @@
 #!/usr/bin/python2
 
-import os, xmlrpclib, math, StringIO, binascii, hashlib, tempfile, shutil, mmap, re, ConfigParser, argparse
-from operator import itemgetter
-import torrentdecode, colors, whatconnection, clientconnection, humanize, exporter, hashcheck
+import os, xmlrpclib, math, StringIO, binascii, hashlib, tempfile, shutil, mmap, re, ConfigParser, argparse, urllib
+import torrentdecode, colors, whatconnection, clientconnection, exporter, hashcheck, migrator
 
-# TODO: Make both torrent file input as torrent-id/url work
-# TODO: Mode that is torrent client independent where you specify your data directory and torrent file or torrent id
-# TODO: Provide the option to skip
+# TODO: Try and use multiple methods for automated filename mapping
 # TODO: Transmission compatibility
-# TODO: Add more error handling
 # TODO: Trying repadding without hash recognition (if flac, metaflac --add-padding), on a per track basis 
 # TODO: Prepare for distribution
-# TODO: (optional) actual migration 
+# TODO: Add more error handling
+# TODO: Fix bug with UTF-8 & urllib
 
 class Main:
     def __init__(self): 
@@ -41,6 +38,9 @@ class Main:
         # initialize site connection
         if self.cfg.get("what.cd","username") and self.cfg.get("what.cd","password"):
             self.siteconnection = whatconnection.Connection(self.cfg.get("what.cd","username"),self.cfg.get("what.cd","password"))
+        
+        # initialize migrator
+        self.migrator = migrator.Migrator()
 
         # manual migration
         if self.args.datadir and self.args.torrent:
@@ -55,7 +55,26 @@ class Main:
 
     # manual migration
     def manualMigration(self):
-        pass
+        # check if directory is valid
+        if os.path.isdir(self.args.datadir):
+            torrentfolder = self.args.datadir
+            # remove trailing slash
+            if torrentfolder[-1] == '/': torrentfolder = torrentfolder[0:-1]
+        else:
+            print "The specified datadir is invalid."
+            return
+
+        # check if torrent file exists & read file
+        f = open(self.args.torrent,'r')
+        if f:
+            torrentdata = f.read()
+            torrentinfo = torrentdecode.decode(torrentdata)
+        else:
+            print "The specified torrent file could not be read."
+            return
+
+        # execute migration
+        self.migrator.execute(torrentinfo,torrentfolder)
 
     # guided migration using torrent client to read 
     def clientGuidedMigration(self):
@@ -70,10 +89,14 @@ class Main:
         for torrentfile, torrentfolder in torrents:
             # try and get replacement
             torrentid = self.queryReplacement(torrentfile)
-            # execute migration
+            # grab torrent file and start migration
             if torrentid:
-                self.executeMigration(torrentid,torrentfolder)
-                print ""
+                print " Trying migration to %s" % (torrentid,)
+                print " Retrieving torrent file..."
+                torrentdata = self.siteconnection.getTorrentFile(torrentid)
+                torrentinfo = torrentdecode.decode(torrentdata)
+                self.migrator.execute(torrentinfo,torrentfolder)
+            print ""
 
     # search site log or ask user to specify torrent to migrate to
     def queryReplacement(self,torrentfile):
@@ -85,18 +108,19 @@ class Main:
             print colors.bold(basename)
             print " Searching site log for '%s'..." % searchstring
             #results = []
-            results = siteconnection.searchLog(searchstring)
+            results = self.siteconnection.searchLog(searchstring)
             if not results: print " No entries found"
-            else: print " %d entr%s found: " % (len(results), ("y" if len(results) == 1 else "ies"))
-            counter = 1
-            for result in results:
-                output = " %d. %s - %s" % (counter,result[0],result[1])
-                if(len(result) > 2): output += " - %s" % (result[2],)
-                print output
-                counter += 1
-            userinput = raw_input(" Try migration to one of the results? (resultnumber/n) ")
-            if userinput and userinput.isdigit() and int(userinput) in range(1,len(results+1)):
-                return int(results[int(userinput)-1][2])
+            else:
+                print " %d entr%s found: " % (len(results), ("y" if len(results) == 1 else "ies"))
+                counter = 1
+                for result in results:
+                    output = " %d. %s - %s" % (counter,result[0],result[1])
+                    if(len(result) > 2): output += " - %s" % (result[2],)
+                    print output
+                    counter += 1
+                userinput = raw_input(" Try migration to one of the results? (resultnumber/n) ")
+                if userinput and userinput.isdigit() and int(userinput) in range(1,len(results+1)):
+                    return int(results[int(userinput)-1][2])
         # or manually specify torrent id / download url
         userinput = raw_input(" Try migration to specified torrent? (torrentid/torrend DL url/n) ")
         if userinput and userinput.isdigit():
@@ -106,73 +130,12 @@ class Main:
             if result: return int(result.group(1))
             else: return 0
 
+    def executeMigration(self,torrentid,torrentfolder):
+        pass 
+
 
 # try migration to specified torrent
 def tryMigration(torrentid,oldfolder):
-    print " Trying migration to %s" % (torrentid,)
-    print "  Retrieving torrent file..."
-    torrentdata = siteconnection.getTorrentFile(torrentid)
-    torrentinfo = torrentdecode.decode(torrentdata)
-    print colors.green("  Suggesting migration:")
-    
-    mappings = [] # keeps filename mappings
-
-    # Rename folder
-    if torrentinfo['info']['name'] != os.path.basename(oldfolder):
-        print "   Rename folder %s => %s" % (os.path.basename(oldfolder), torrentinfo['info']['name'])
-
-    # Get a list of all old files
-    oldfiles = []
-    for item in os.walk(oldfolder):
-        if len(item[2]):
-            for f in item[2]:
-                oldfiles.append(os.path.normpath(os.path.relpath(os.path.join(item[0],f),oldfolder)))
-
-    # Remove non-audio files unless file with same filesize and extension is present
-    for oldfile in oldfiles:
-        extension = os.path.splitext(oldfile)[-1]
-        if extension not in AUDIOFORMATS:
-            found = False
-            for newfile in torrentinfo['info']['files']:
-                if os.path.splitext(os.path.join(*newfile['path']))[-1] == extension and os.path.getsize(os.path.join(oldfolder,oldfile)) == newfile['length']:
-                    mappings.append((oldfile,os.path.join(*newfile['path']),0))
-                    found = True
-    if len(mappings) > 0:
-        print "   Rename non-audio related files:"
-        for mapping in mappings:
-            print "    %s => %s" % (mapping[0],mapping[1])
-
-    # Audio filename mapping
-    print "   Audio file renaming:"
-    originalAudio = []
-    for oldfile in oldfiles:
-        if os.path.splitext(oldfile)[-1] in AUDIOFORMATS:
-            originalAudio.append((oldfile,os.path.getsize(os.path.join(oldfolder,oldfile))))
-    originalAudio = sorted(originalAudio, key=itemgetter(0))
-    newAudio = []
-    for newfile in torrentinfo['info']['files']:
-        if os.path.splitext(os.path.join(*newfile['path']))[-1] in AUDIOFORMATS:
-            newAudio.append((os.path.join(*newfile['path']),newfile['length']))
-    newAudio = sorted(newAudio, key=itemgetter(0))
-    
-    # Print original files with number
-    counter = 1
-    for new in newAudio:
-        print "    File %d: %s (%s)" % (counter, new[0], humanize.humanize(new[1]))
-        counter += 1
-    # Ask for each new file to verify the match
-    print "   Please verify renames (press enter/correct number):"
-    counter = 1
-    for old in originalAudio:
-        #userinput = raw_input("    %s (%s) [File %d: %s (%s)] " % (old[0], humanize.humanize(old[1]), counter, newAudio[counter-1][0], humanize.humanize(newAudio[counter-1][1])))
-        userinput = ""
-        if userinput and userinput.is_digit() and int(userinput) in range(1,len(newAudio)+1):
-            mapto = int(userinput) - 1
-        else:
-            mapto = counter - 1
-        mappings.append((old[0],newAudio[mapto][0],0))
-        counter += 1
-    
     # Check filesizes
     hashChecked = False
     proposeFix = False
