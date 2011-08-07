@@ -20,7 +20,7 @@ class Main:
         self.urlregex = re.compile(r"http://what\.cd/torrents\.php\?.*id=(\d+)")
 
         # parse arguments
-        parser = argparse.ArgumentParser(description='A What.CD tool for guided torrent migration.')
+        parser = argparse.ArgumentParser(description='A What.CD tool to ease torrent migration.')
         group = parser.add_argument_group('manual migration')
         group.add_argument('datadir',help='directory of (old) torrent data',nargs='?')
         group.add_argument('torrent',help='new .torrent file, torrent id or torrent url',nargs='?')
