@@ -1,7 +1,7 @@
 
-import re, os
+import re, os, tempfile, shutil, StringIO, math, hashlib
 from operator import itemgetter
-import colors, humanize
+import colors, humanize, exporter, hashcheck
 
 class Migrator:
     def __init__(self):
@@ -10,6 +10,8 @@ class Migrator:
     def execute(self, torrentinfo, torrentfolder):
         print colors.green("  Suggesting migration:")
 
+        self.torrentinfo = torrentinfo
+        self.torrentfolder = torrentfolder
         self.mappings = [] # keeps filename mappings
 
         # Rename folder
@@ -69,14 +71,123 @@ class Migrator:
             counter += 1
 
         # Check filesize
-        hashChecked = False
-        proposeFix = False
         sumNew = 0
         for new in newAudio: sumNew += new[1]
         sumOld = 0
         for old in originalAudio: sumOld += old[1]
         if sumNew != sumOld:
             print "   Audio filesizes do not match (original: %d, new: %d)" % (sumOld,sumNew)
-            proposeFix = True
+            # add padding to files
+            print "   Changing padding on files"
+            self.simpleRepad(originalAudio,newAudio)
         else:
             print "   Audio filesizes match"
+
+        # Hash check
+        print "   Hash checking migration..."
+        results = self.hashCheck()
+
+        # If bad result suggest hash recognition
+        if float(results[0])/results[1] < 20:
+            # Ask for hash recognition
+            userinput = raw_input("   Do you want to run experimental hash recognition to try and auto-correct the files? (y/n) [n] ")
+            if userinput and userinput.lower() in ("y","yes"):
+                self.hashRecognition()
+                # Do final hash check
+                print "   Hash checking migration..."
+                results = self.hashCheck()
+
+        # Offer migration
+        print colors.green("  Execute migration:")
+        userinput = raw_input("   Remove the old torrent from the client? (y/n) [n] ")
+        if results[0] > 0:
+            userinput = raw_input("   Execute migration? Will change your old data! (y/n) [n] ")
+        else:
+            userinput = raw_input("   Remove your old data? (y/n) [n] ")
+        userinput = raw_input("   Add the new torrent to your client? (y/n) [y] ")
+
+    def hashRecognition(self):
+        print "   Executing hash recognition... (may take a while)"
+        piece_length = self.torrentinfo['info']['piece length']
+        pieces = StringIO.StringIO(self.torrentinfo['info']['pieces'])
+        offset = 0
+        numFound = 0
+        numFiles = 0
+        # get each file that is mapped and is an audio format
+        for check in self.torrentinfo['info']['files']:
+            if os.path.splitext(os.path.join(*check['path']))[-1] in self.audioformats:
+                for i in range(len(self.mappings)):
+                    if(self.mappings[i][1] == os.path.join(*check['path'])):
+                        # determine pieces and starting offsets
+                        first_piece = math.floor(offset/piece_length)
+                        middle_piece = round((offset+check['length']/2)/piece_length)
+                        starting_offset = int((middle_piece - first_piece) * piece_length - (offset - (first_piece * piece_length)))
+                        pieces.seek(int(middle_piece*20))
+                        piece = pieces.read(20)
+                        found, fileoffset = self.searchPieceInFile(os.path.join(self.torrentfolder,self.mappings[i][0]),piece,starting_offset,piece_length)
+                        if found:
+                            numFound += 1
+                            mappings[i] = (mappings[i][0],mappings[i][1],-fileoffset)
+                        numFiles += 1
+                        break;
+            offset += check['length']
+        print "   Hash recognition succeeded for %d of %d files" % (numFound,numFiles)
+
+    def searchPieceInFile(self,path,piece,starting_offset,piece_length):
+        # get data from file
+        f = open(path,'rb')
+        filedata = StringIO.StringIO(f.read())
+        f.close()
+        # init
+        byteoffset = 0
+        found = False
+        # main loop
+        maxtries = 5000
+        while True and byteoffset < maxtries:
+            # look left and right from starting offset
+            limit = 2
+            # left
+            if starting_offset+byteoffset <= os.path.getsize(path):
+                limit -= 1
+                filedata.seek(starting_offset+byteoffset)
+                if hashlib.sha1(filedata.read(piece_length)).digest() == piece:
+                    filedata.close()
+                    return True, byteoffset
+            #right
+            if starting_offset-byteoffset >= 0:
+                limit -= 1
+                filedata.seek(starting_offset-byteoffset)
+                if hashlib.sha1(filedata.read(piece_length)).digest() == piece:
+                    filedata.close()
+                    return True, -byteoffset
+            if limit == 2: break
+            byteoffset += 1
+        # close iostring
+        filedata.close()
+        # nothing found
+        return False, byteoffset
+
+    def simpleRepad(self,originalAudio,newAudio):
+        for i in range(len(self.mappings)):
+            # look for mapping in new and old
+            for old in originalAudio:
+                if old[0] == self.mappings[i][0]:
+                    sizeOld = old[1] 
+                    break
+            for new in newAudio:
+                if new[0] == self.mappings[i][1]:
+                    sizeNew = new[1]
+            # use difference as padding
+            self.mappings[i] = (self.mappings[i][0],self.mappings[i][1],sizeNew - sizeOld)
+
+
+    def hashCheck(self):
+        # create temp folder
+        tempdir = tempfile.mkdtemp("whatmigrate_hashcheck")
+        # export
+        exporter.export(self.torrentinfo,self.torrentfolder,self.mappings,tempdir)
+        # hash check
+        results = hashcheck.hashcheck(self.torrentinfo,tempdir)
+        print "   %d of %d pieces correct " % (results[0],results[1])+colors.bold("(%d%%)" % (round(float(results[0])/results[1]*100),))
+        shutil.rmtree(tempdir)
+        return results

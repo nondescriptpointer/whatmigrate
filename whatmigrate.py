@@ -1,11 +1,11 @@
 #!/usr/bin/python2
 
-import os, xmlrpclib, math, StringIO, binascii, hashlib, tempfile, shutil, mmap, re, ConfigParser, argparse, urllib
-import torrentdecode, colors, whatconnection, clientconnection, exporter, hashcheck, migrator
+import os, re, ConfigParser, argparse
+import torrentdecode, colors, whatconnection, clientconnection, exporter, migrator
 
 # TODO: Try and use multiple methods for automated filename mapping
 # TODO: Transmission compatibility
-# TODO: Trying repadding without hash recognition (if flac, metaflac --add-padding), on a per track basis 
+# TODO: Hash recognition is slow and doesn't really work
 # TODO: Prepare for distribution
 # TODO: Add more error handling
 # TODO: Fix bug with UTF-8 & urllib
@@ -130,127 +130,6 @@ class Main:
             if result: return int(result.group(1))
             else: return 0
 
-    def executeMigration(self,torrentid,torrentfolder):
-        pass 
-
-
-# try migration to specified torrent
-def tryMigration(torrentid,oldfolder):
-    # Check filesizes
-    hashChecked = False
-    proposeFix = False
-    sumNew = 0
-    for new in newAudio: sumNew += new[1]
-    sumOld = 0
-    for old in originalAudio: sumOld += old[1]
-    if sumNew != sumOld:
-        print "   Audio filesizes do not match (original: %d, new: %d)" % (sumOld,sumNew)
-        proposeFix = True
-    else:
-        print "   Audio filesizes match"
-        result = hashCheck(torrentinfo,oldfolder,mappings)
-        hashChecked = True
-        if float(result[0])/result[1] < 0.5:
-            proposeFix = True 
-
-    # Propose hash recognition if filesizes do not match or hash check < 0.5
-    if proposeFix:
-        userinput = raw_input("   Do you want to perform torrent hash recognition to auto-correct the files? (y/n) ")
-        if userinput and userinput.lower() in ("y",'yes'):
-            hashChecked = False
-            hashRecognition(torrentinfo,oldfolder,mappings)
-
-    # Do final hash check
-    if hashChecked == False:
-        hashCheck(torrentinfo,oldfolder,mappings)
-
-    # Offer migration
-    userinput = raw_input("   Do you want to remove the old torrent from the client? (y/n) [y] ")
-    userinput = raw_input("   Do you want to remove the original data? (y/n) [y] ")
-    userinput = raw_input("   Do you want to add the new torrent to your client? (y/n) [y] ")
-    userinput = raw_input("   Last chance to abort, execute migration? (y/n) [n] ")
-    print "   Migrating!"
-
-
-# TODO: This is too slow
-def hashRecognition(torrentinfo,datafolder,mappings):
-    print "   Executing hash recognition... (may take a while)"
-    piece_length = torrentinfo['info']['piece length']
-    pieces = StringIO.StringIO(torrentinfo['info']['pieces'])
-    offset = 0
-    buffered_offset = 0 # used to start from previous offset, saves a lot of time
-    numFound = 0
-    numFiles = 0
-    # get each file that is mapped and is an audio format
-    for check in torrentinfo['info']['files']:
-        if os.path.splitext(os.path.join(*check['path']))[-1] in AUDIOFORMATS:
-            for i in range(len(mappings)):
-                if(mappings[i][1] == os.path.join(*check['path'])):
-                    # determine pieces and starting offsets
-                    first_piece = math.floor(offset/piece_length)
-                    middle_piece = round((offset+check['length']/2)/piece_length)
-                    starting_offset = int((middle_piece - first_piece) * piece_length - (offset - (first_piece * piece_length)))
-                    pieces.seek(int(middle_piece*20))
-                    piece = pieces.read(20)
-                    # search for piece in the file
-                    found, fileoffset = searchPieceInFile(os.path.join(datafolder,mappings[i][0]),piece,starting_offset,piece_length)
-                    if found:
-                        numFound += 1
-                        mappings[i] = (mappings[i][0],mappings[i][1],-fileoffset)
-                    numFiles += 1
-                    
-                    break
-        offset += check['length']
-    print "   Hash recognition succeeded for %d of %d audio-files" % (numFound, numFiles)
-
-def searchPieceInFile(path,piece,starting_offset,piece_length):
-    # get data from file
-    f = open(path,'rb')
-    filedata = StringIO.StringIO(f.read())
-    f.close()
-    # init
-    byteoffset = 0
-    found = False
-    # main loop
-    while True:
-        # look left and light from starting offset
-        limit = 2
-        # left 
-        if starting_offset+byteoffset <= os.path.getsize(path):
-            limit -= 1
-            filedata.seek(starting_offset+byteoffset)
-            if hashlib.sha1(filedata.read(piece_length)).digest() == piece:
-                filedata.close()
-                return True, byteoffset
-        # right
-        if starting_offset-byteoffset >= 0:
-            limit -= 1
-            filedata.seek(starting_offset-byteoffset)
-            if hashlib.sha1(filedata.read(piece_length)).digest() == piece:
-                filedata.close()
-                return True, -byteoffset
-        # stop processing if file boundaries have been reached
-        if limit == 2: break
-        # increase the byte offset
-        byteoffset += 1
-    # close iostring
-    filedata.close()
-    # nothing found
-    return False, byteoffset
-
-def hashCheck(torrentinfo,datafolder,mappings):
-    print "   Hash checking migration..."
-    # make temporary folder
-    tempdir = tempfile.mkdtemp("whatmigrate_hashcheck")
-    # export
-    exporter.export(torrentinfo,datafolder,mappings,tempdir)
-    # hash check
-    results = hashcheck.hashcheck(torrentinfo,tempdir)
-    print ("   %d of %d pieces correct " % (results[0],results[1]))+colors.bold("(%d%%)" % (round(float(results[0])/results[1]*100),))
-    # remove temporary folder
-    shutil.rmtree(tempdir)
-    return results
-
-
+# Init
 if __name__ == "__main__":
     main = Main() 
