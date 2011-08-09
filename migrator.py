@@ -1,7 +1,8 @@
 
 import re, os, tempfile, shutil, StringIO, math, hashlib
 from operator import itemgetter
-import utils.colors, utils.humanize, exporter, utils.hashcheck
+from utils import colors, humanize, hashcheck
+import exporter
 
 class Migrator:
     def __init__(self):

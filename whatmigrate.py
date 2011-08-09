@@ -1,7 +1,8 @@
 #!/usr/bin/python2
 
 import os, re, ConfigParser, argparse
-import utils.torrentdecode, utils.colors, exporter, whatconnection, clientconnection, migrator
+from utils import torrentdecode, colors
+import exporter, siteconnection, clientconnection, migrator
 
 # TODO: Try and use multiple methods for automated filename mapping
 # TODO: Transmission compatibility
@@ -12,6 +13,7 @@ import utils.torrentdecode, utils.colors, exporter, whatconnection, clientconnec
 # TODO: Set up tests
 
 class Main:
+
     def __init__(self): 
         # some constants
         self.audioformats = (".flac",".mp3",".ogg",".aac",".ac3",".dts")
@@ -20,7 +22,7 @@ class Main:
         # parse arguments
         parser = argparse.ArgumentParser(description='A What.CD tool to ease torrent migration.')
         group = parser.add_argument_group('manual migration')
-        group.add_argument('datadir',help='directory of (old) torrent data',nargs='?')
+        group.add_argument('datadir',help='directory of old torrent data',nargs='?')
         group.add_argument('torrent',help='new .torrent file, torrent id or torrent url',nargs='?')
         parser.add_argument('--version',action='version',version='whatmigrate 0.1')
         self.args = parser.parse_args()
@@ -36,20 +38,34 @@ class Main:
             self.cfg.set("what.cd","password","")
             self.cfg.write(open(os.path.expanduser("~/.whatmigrate"),"wb"))
 
-        # initialize site connection
-        if self.cfg.get("what.cd","username") and self.cfg.get("what.cd","password"):
-            self.siteconnection = whatconnection.Connection(self.cfg.get("what.cd","username"),self.cfg.get("what.cd","password"))
+        # initialize site connection if needed
+        if (not self.args.datadir or not self.args.torrent) and self.cfg.get("rtorrent","xmlrpc_proxy"):
+            if self.cfg.get("what.cd","username") and self.cfg.get("what.cd","password"):
+                self.siteconnection = siteconnection.Connection(self.cfg.get("what.cd","username"),self.cfg.get("what.cd","password"))
         
         # initialize migrator
         self.migrator = migrator.Migrator()
 
+        self.start()
+
+    # start script flow
+    def start(self):
+
         # manual migration
         if self.args.datadir and self.args.torrent:
             self.manualMigration()
+
         # guided rtorrent migration
         elif self.cfg.get("rtorrent","xmlrpc_proxy"):
-            self.torrentclient = clientconnection.Rtorrent(self.cfg.get("rtorrent","xmlrpc_proxy")) 
-            self.clientGuidedMigration()
+            # setup torrent connection
+            self.torrentclient = clientconnection.Rtorrent(self.cfg.get("rtorrent","xmlrpc_proxy"))
+            if not self.torrentclient:
+                print colors.red("Torrent connection failed.")
+            # setup site connection
+            if self.cfg.get("what.cd","username") and self.cfg.get("what.cd","password"):
+                self.siteconnection = siteconnection.Connection(self.cfg.get("what.cd","username"),self.cfg.get("what.cd","password"))
+            self.guidedMigration()
+
         # no torrent client configured and no datadir and torrentfile specified
         else: 
             print "No torrent client configured. Edit ~/.whatmigrate or specify a data directory and torrent file (see -h for more info.)"
@@ -78,7 +94,7 @@ class Main:
         self.migrator.execute(torrentinfo,torrentfolder)
 
     # guided migration using torrent client to read 
-    def clientGuidedMigration(self):
+    def guidedMigration(self):
         self.guided = True
         # get a list of unregistered torrents
         torrents = self.torrentclient.get_unregistered_torrents()

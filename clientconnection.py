@@ -1,5 +1,5 @@
-
 import xmlrpclib, socket, sys
+
 
 class Rtorrent:
     def __init__(self,proxy_uri):
@@ -9,6 +9,8 @@ class Rtorrent:
     def get_unregistered_torrents(self):
         try:
             torrents = self.server.download_list("")
+        except xmlrpclib.ProtocolError, err:
+            sys.exit("XML-RPC connection to rTorrent failed. (ProtocolError: [%d] %s)" % (err.errcode,err.errmsg))
         except socket.error, (val,message):
             sys.exit("XML-RPC connection to rTorrent failed. ([%d] %s)" % (val,message))
         errors = []
