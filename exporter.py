@@ -1,6 +1,6 @@
 import os
 
-# exports files to destination folder
+# exports files to destination folder using mappings
 def export(torrentinfo,datafolder,mappings,destination):
     # create file with correct length for each file
     for newfile in torrentinfo['info']['files']:

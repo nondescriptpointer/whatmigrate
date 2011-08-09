@@ -1,7 +1,7 @@
 #!/usr/bin/python2
 
 import os, re, ConfigParser, argparse
-import torrentdecode, colors, whatconnection, clientconnection, exporter, migrator
+import utils.torrentdecode, utils.colors, exporter, whatconnection, clientconnection, migrator
 
 # TODO: Try and use multiple methods for automated filename mapping
 # TODO: Transmission compatibility
@@ -9,6 +9,7 @@ import torrentdecode, colors, whatconnection, clientconnection, exporter, migrat
 # TODO: Prepare for distribution
 # TODO: Add more error handling
 # TODO: Fix bug with UTF-8 & urllib
+# TODO: Set up tests
 
 class Main:
     def __init__(self): 
