@@ -1,16 +1,17 @@
 #!/usr/bin/python2
 
-import os, re, ConfigParser, argparse
+import os, re, ConfigParser, argparse, sys
 from utils import torrentdecode, colors
 import exporter, siteconnection, clientconnection, migrator
 
+# TODO: Torrent id or URL passing for manual
 # TODO: Try and use multiple methods for automated filename mapping
-# TODO: Transmission compatibility
 # TODO: Hash recognition is slow and doesn't really work
 # TODO: Prepare for distribution
 # TODO: Add more error handling
 # TODO: Fix bug with UTF-8 & urllib
 # TODO: Set up tests
+# TODO: Transmission compatibility
 
 class Main:
 
@@ -60,7 +61,7 @@ class Main:
             # setup torrent connection
             self.torrentclient = clientconnection.Rtorrent(self.cfg.get("rtorrent","xmlrpc_proxy"))
             if not self.torrentclient:
-                print colors.red("Torrent connection failed.")
+                print "Torrent connection failed."
             # setup site connection
             if self.cfg.get("what.cd","username") and self.cfg.get("what.cd","password"):
                 self.siteconnection = siteconnection.Connection(self.cfg.get("what.cd","username"),self.cfg.get("what.cd","password"))
@@ -82,13 +83,12 @@ class Main:
             return
 
         # check if torrent file exists & read file
-        f = open(self.args.torrent,'r')
-        if f:
-            torrentdata = f.read()
-            torrentinfo = torrentdecode.decode(torrentdata)
-        else:
-            print "The specified torrent file could not be read."
-            return
+        try:
+            f = open(self.args.torrent,'r')
+        except IOError:
+            sys.exit("The specified torrent file could not be opened.")
+        torrentdata = f.read()
+        torrentinfo = torrentdecode.decode(torrentdata)
 
         # execute migration
         self.migrator.execute(torrentinfo,torrentfolder)
@@ -97,6 +97,7 @@ class Main:
     def guidedMigration(self):
         self.guided = True
         # get a list of unregistered torrents
+        print "Scanning for unregistered torrents..."
         torrents = self.torrentclient.get_unregistered_torrents()
         if not len(torrents):
             print "No unregistered torrents found"
