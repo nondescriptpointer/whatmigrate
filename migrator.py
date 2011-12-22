@@ -1,7 +1,7 @@
 
 import re, os, tempfile, shutil, StringIO, math, hashlib
 from operator import itemgetter
-from utils import colors, humanize, hashcheck
+from utils import humanize, hashcheck
 import exporter
 
 class Migrator:
@@ -9,7 +9,7 @@ class Migrator:
         self.audioformats = (".flac",".mp3",".ogg",".aac",".ac3",".dts")
     
     def execute(self, torrentinfo, torrentfolder):
-        print colors.green("  Suggesting migration:")
+        print "Suggesting migration:"
 
         self.torrentinfo = torrentinfo
         self.torrentfolder = torrentfolder
@@ -99,7 +99,7 @@ class Migrator:
                 results = self.hashCheck()
 
         # Offer migration
-        print colors.green("  Execute migration:")
+        print "  Execute migration:"
         userinput = raw_input("   Remove the old torrent from the client? (y/n) [n] ")
         if results[0] > 0:
             userinput = raw_input("   Execute migration? Will change your old data! (y/n) [n] ")
@@ -189,6 +189,6 @@ class Migrator:
         exporter.export(self.torrentinfo,self.torrentfolder,self.mappings,tempdir)
         # hash check
         results = hashcheck.hashcheck(self.torrentinfo,tempdir)
-        print "   %d of %d pieces correct " % (results[0],results[1])+colors.bold("(%d%%)" % (round(float(results[0])/results[1]*100),))
+        print "   %d of %d pieces correct " % (results[0],results[1])+"(%d%%)" % (round(float(results[0])/results[1]*100),)
         shutil.rmtree(tempdir)
         return results

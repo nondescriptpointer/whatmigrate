@@ -10,9 +10,9 @@ class Rtorrent:
         try:
             torrents = self.server.download_list("")
         except xmlrpclib.ProtocolError, err:
-            sys.exit("XML-RPC connection to rTorrent failed. (ProtocolError: [%d] %s)" % (err.errcode,err.errmsg))
+            sys.exit("XML-RPC connection to rTorrent failed. (Protocol error: [%d] %s)" % (err.errcode,err.errmsg))
         except socket.error, (val,message):
-            sys.exit("XML-RPC connection to rTorrent failed. ([%d] %s)" % (val,message))
+            sys.exit("XML-RPC connection to rTorrent failed. (Socket error: [%d] %s)" % (val,message))
         errors = []
         for torrent in torrents:
            message = self.server.d.get_message(torrent)
