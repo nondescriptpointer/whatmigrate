@@ -1,6 +1,5 @@
 import xmlrpclib, socket, sys
 
-
 class Rtorrent:
     def __init__(self,proxy_uri):
         self.server = xmlrpclib.ServerProxy(proxy_uri)

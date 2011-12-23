@@ -1,23 +1,22 @@
 
 import re, os, tempfile, shutil, StringIO, math, hashlib
 from operator import itemgetter
-from utils import humanize, hashcheck
+from utils import humanize, hashcheck, colors
 import exporter
 
 class Migrator:
-    def __init__(self):
+    def __init__(self, output):
         self.audioformats = (".flac",".mp3",".ogg",".aac",".ac3",".dts")
+        self.outputdir = output
     
     def execute(self, torrentinfo, torrentfolder):
-        print "Suggesting migration:"
-
         self.torrentinfo = torrentinfo
         self.torrentfolder = torrentfolder
-        self.mappings = [] # keeps filename mappings
+        self.mappings = [] # keeps filename mappings and offsets
 
         # Rename folder
         if torrentinfo['info']['name'] != os.path.basename(torrentfolder):
-            print "   Rename folder %s => %s" % (os.path.basename(torrentfolder), torrentinfo['info']['name'])
+            print "  Rename folder %s => %s" % (os.path.dirname(torrentfolder), torrentinfo['info']['name'])
 
         # Get a list of all old files
         oldfiles = []
@@ -30,18 +29,16 @@ class Migrator:
         for oldfile in oldfiles:
             extension = os.path.splitext(oldfile)[-1]
             if extension not in self.audioformats:
-                found = False
                 for newfile in torrentinfo['info']['files']:
                     if os.path.splitext(os.path.join(*newfile['path']))[-1] == extension and os.path.getsize(os.path.join(torrentfolder,oldfile)) == newfile['length']:
                         self.mappings.append((oldfile,os.path.join(*newfile['path']),0))
-                        found = True
         if len(self.mappings) > 0:
-            print "   Rename non-audio files:"
+            print "  Rename non-audio files:"
             for mapping in self.mappings:
-                print "    %s => %s" % (mapping[0],mapping[1])
+                print "   %s => %s" % (mapping[0],mapping[1])
 
         # Audio files mapping
-        print "   Audio file renaming:"
+        print "  Rename audio files. Current names:"
         originalAudio = []
         for oldfile in oldfiles:
             if os.path.splitext(oldfile)[-1] in self.audioformats:
@@ -56,14 +53,14 @@ class Migrator:
         # Print original files with number
         counter = 1
         for new in newAudio:
-            print "    File: %d: %s (%s)" % (counter, new[0], humanize.humanize(new[1]))
+            print "   File %d: %s (%s)" % (counter, new[0], humanize.humanize(new[1]))
             counter += 1
 
         # Ask for each new file to verify the match
-        print "   Please verify renames (press enter/correct number):"
+        print "  Please verify renames (press enter/correct number):"
         counter = 1
         for old in originalAudio:
-            userinput = raw_input("    %s (%s) [File %d: %s (%s)] " % (old[0], humanize.humanize(old[1]), counter, newAudio[counter-1][0], humanize.humanize(newAudio[counter-1][1])))
+            userinput = raw_input("   %s (%s) [File %d: %s (%s)] " % (old[0], humanize.humanize(old[1]), counter, newAudio[counter-1][0], humanize.humanize(newAudio[counter-1][1])))
             if userinput and userinput.isdigit() and int(userinput) in range(1,len(newAudio)+1):
                 mapto = int(userinput) - 1
             else:
@@ -77,35 +74,41 @@ class Migrator:
         sumOld = 0
         for old in originalAudio: sumOld += old[1]
         if sumNew != sumOld:
-            print "   Audio filesizes do not match (original: %d, new: %d)" % (sumOld,sumNew)
+            print "  Filesizes do not match (original: %d, new: %d)" % (sumOld,sumNew)
             # add padding to files
-            print "   Changing padding on files"
+            print "  Changing padding on files"
             self.simpleRepad(originalAudio,newAudio)
         else:
-            print "   Audio filesizes match"
+            print "  Filesizes match"
 
         # Hash check
-        print "   Hash checking migration..."
+        print "  Hash checking migration..."
         results = self.hashCheck()
 
         # If bad result suggest hash recognition
-        if float(results[0])/results[1] < 20:
+        """
+        if float(results[0])/results[1] < 0.20:
             # Ask for hash recognition
-            userinput = raw_input("   Do you want to run experimental hash recognition to try and auto-correct the files? (y/n) [n] ")
+            userinput = raw_input("  Do you want to run experimental hash recognition to try and auto-correct the files? (y/n) [n] ")
             if userinput and userinput.lower() in ("y","yes"):
                 self.hashRecognition()
                 # Do final hash check
                 print "   Hash checking migration..."
                 results = self.hashCheck()
+        """
 
         # Offer migration
-        print "  Execute migration:"
-        userinput = raw_input("   Remove the old torrent from the client? (y/n) [n] ")
-        if results[0] > 0:
-            userinput = raw_input("   Execute migration? Will change your old data! (y/n) [n] ")
+        userinput = raw_input("  Execute? (y/n) ")
+        if userinput and userinput.lower() in ("y","yes"):
+            targetdir = os.path.join(self.outputdir,torrentinfo['info']['name'])
+            if not os.path.isdir(targetdir):
+                os.makedirs(targetdir)
+            print "  Exporting to %s" % (targetdir,)
+            exporter.export(self.torrentinfo,self.torrentfolder,self.mappings,targetdir)
+            print "  Done"
+            return True
         else:
-            userinput = raw_input("   Remove your old data? (y/n) [n] ")
-        userinput = raw_input("   Add the new torrent to your client? (y/n) [y] ")
+            return False
 
     def hashRecognition(self):
         print "   Executing hash recognition... (may take a while)"
@@ -134,6 +137,32 @@ class Migrator:
             offset += check['length']
         print "   Hash recognition succeeded for %d of %d files" % (numFound,numFiles)
 
+    def simpleRepad(self,originalAudio,newAudio):
+        for i in range(len(self.mappings)):
+            # look for mapping in new and old
+            for old in originalAudio:
+                if old[0] == self.mappings[i][0]:
+                    sizeOld = old[1] 
+                    break
+            for new in newAudio:
+                if new[0] == self.mappings[i][1]:
+                    sizeNew = new[1]
+            # use difference as padding
+            self.mappings[i] = (self.mappings[i][0],self.mappings[i][1],sizeNew - sizeOld)
+
+
+    def hashCheck(self):
+        # create temp folder
+        tempdir = tempfile.mkdtemp("whatmigrate_hashcheck")
+        # export
+        exporter.export(self.torrentinfo,self.torrentfolder,self.mappings,tempdir)
+        # hash check
+        results = hashcheck.hashcheck(self.torrentinfo,tempdir)
+        print "  %d of %d pieces correct " % (results[0],results[1])+"(%d%%)" % (round(float(results[0])/results[1]*100),)
+        shutil.rmtree(tempdir)
+        return results
+
+    # unused/slow
     def searchPieceInFile(self,path,piece,starting_offset,piece_length):
         # get data from file
         f = open(path,'rb')
@@ -167,28 +196,3 @@ class Migrator:
         filedata.close()
         # nothing found
         return False, byteoffset
-
-    def simpleRepad(self,originalAudio,newAudio):
-        for i in range(len(self.mappings)):
-            # look for mapping in new and old
-            for old in originalAudio:
-                if old[0] == self.mappings[i][0]:
-                    sizeOld = old[1] 
-                    break
-            for new in newAudio:
-                if new[0] == self.mappings[i][1]:
-                    sizeNew = new[1]
-            # use difference as padding
-            self.mappings[i] = (self.mappings[i][0],self.mappings[i][1],sizeNew - sizeOld)
-
-
-    def hashCheck(self):
-        # create temp folder
-        tempdir = tempfile.mkdtemp("whatmigrate_hashcheck")
-        # export
-        exporter.export(self.torrentinfo,self.torrentfolder,self.mappings,tempdir)
-        # hash check
-        results = hashcheck.hashcheck(self.torrentinfo,tempdir)
-        print "   %d of %d pieces correct " % (results[0],results[1])+"(%d%%)" % (round(float(results[0])/results[1]*100),)
-        shutil.rmtree(tempdir)
-        return results

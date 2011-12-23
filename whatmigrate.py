@@ -1,20 +1,12 @@
 #!/usr/bin/python2
 
-import os, re, ConfigParser, argparse, sys, readline
+import os, re, ConfigParser, argparse, sys
 from utils import torrentdecode
 import exporter, siteconnection, clientconnection, migrator
 try: import readline # not supported on all platforms
 except ImportError: pass
 
-# TODO: Try and use multiple methods for automated filename mapping
-# TODO: Hash recognition is slow and shit 
-# TODO: Better error handling
-# TODO: Fix bug with UTF-8 & urllib
-# TODO: Set up tests
-# TODO: Add support for other torrent clients (eg Transmission)
-
 class Main:
-
     def __init__(self): 
         # parse arguments
         parser = argparse.ArgumentParser(description='A What.CD tool to help you with migrating your old data to the new torrent.')
@@ -47,7 +39,7 @@ class Main:
             self.siteconnection = siteconnection.Connection(self.cfg.get("what.cd","username"),self.cfg.get("what.cd","password"),self.cfg.get("what.cd","use_ssl"))
         
         # initialize migrator
-        self.migrator = migrator.Migrator()
+        self.migrator = migrator.Migrator(self.cfg.get("general","outputdir"))
         
         # go!
         self.start()
@@ -74,22 +66,19 @@ class Main:
         else:
             torrentinfo = self.queryReplacement(os.path.dirname(self.args.datadir))
         if torrentinfo:
-            print "Executing migration"
-            #print self.args.datadir
-            #print torrentinfo
-            #self.migrator.execute(torrentinfo,self.args.datadir)
+            self.migrator.execute(torrentinfo,self.args.datadir)
 
     # guided migration using torrent client to read 
     def guidedMigration(self):
         # setup client connection
         torrentclient = clientconnection.Rtorrent(self.cfg.get("rtorrent","xmlrpc_proxy"))
         # get a list of unregistered torrents
-        print "Scanning for unregistered torrents..."
+        print "Scanning for unregistered torrents... (can take a few minutes)"
         torrents = torrentclient.get_unregistered_torrents()
         if not len(torrents):
             print "No unregistered torrents found"
             exit()
-        print "%d unregistered torrents found" % (len(torrents),)
+        print "%d unregistered torrents found\n" % (len(torrents),)
         # run through torrents
         for torrentfile, torrentfolder in torrents:
             # look for replacement
@@ -99,8 +88,8 @@ class Main:
             searchstring = parts[0] + " - " + parts[1]
             torrentinfo = self.queryReplacement(searchstring)
             if torrentinfo:
-                print "Executing migration"
-                # self.migrator.execute(torrentinfo,torrentfolder)
+                self.migrator.execute(torrentinfo,torrentfolder)
+            print ""
 
     # read torrent file
     def readTorrentFile(self,path):
@@ -143,11 +132,11 @@ class Main:
     # query user for a replacement torrent
     def queryReplacement(self,searchFor):
         # Ask for input
-        print "Specify a torrent file (id, permalink or local file), leave blank to do a site search or type 's' to skip this torrent"
+        print " Specify a torrent file (id, permalink or local file), leave blank to do a site search or type 's' to skip this torrent"
         if readline:
             readline.set_completer_delims(' \t\n;')
             readline.parse_and_bind("tab: complete") # enable auto-completion
-        userinput = raw_input()
+        userinput = raw_input(" ")
         if readline:
             readline.parse_and_bind("tab:"); # disable auto-completion again
         if userinput.strip() == 's':
@@ -159,7 +148,7 @@ class Main:
         if not self.siteconnection:
             sys.exit("You need to put your username and password in .whatmigrate to do a site search.")
         if readline: readline.set_startup_hook(lambda: readline.insert_text(searchFor))
-        userinput = raw_input("Search What.CD for: ")
+        userinput = raw_input(" Search What.CD for: ")
         if readline: readline.set_startup_hook()
         results = self.siteconnection.searchTorrents(userinput)
         count = 1
@@ -175,7 +164,7 @@ class Main:
                         flattened.append(torrent)
                         count += 1
             # ask for user entry
-            userinput = raw_input("Try migration to one of these results? (resultnumber/n) ")
+            userinput = raw_input(" Try migration to one of these results? (resultnumber/n) ")
             if userinput and userinput.isdigit() and int(userinput) in range(1,len(flattened)+1):
                 # download the torrent file
                 torrentdata = self.siteconnection.getTorrentFile(flattened[int(userinput)-1]['id'])

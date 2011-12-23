@@ -1,5 +1,4 @@
 # Class that handles What.CD authentication, can download torrents and can search the site log
-
 import os,pycurl,urllib,re,sys
 from BeautifulSoup import BeautifulSoup
 
