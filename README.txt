@@ -1,9 +1,8 @@
 whatmigrate is a tool to help you with migrating your old data to a new 
-torrent after a trump. It helps you with finding the torrent that trumped yours,
-it will suggest file renaming and will try and repad the files if the filesizes 
-don't match to try and make your data pass (most of) the hash check. It is 
-mostly targetted at FLAC torrents which often get trumped by files that are 
-µalmost binary compatible.
+torrent after a trump. It helps you with finding the new torrent, it will 
+suggest file renaming and will try and repad the files if the filesizes 
+don't match. This way it is very likely that your data will pass (most of)
+the hash check. The primary target is FLAC trumps.
 
 There are various ways to run this script. You can run without arguments to 
 connect to the XML-RPC socket of your rtorrent client and make it go over every
@@ -13,17 +12,17 @@ figure out the usage.
 
 Please note that this script is still experimental, your results may vary. Once
 it becomes mature enough it will also allow you to replace the torrent and data
-from the script itself. For now, it just exports the new data to a given
+from the script itself. For now, it just exports the new data to a preconfigured
 directory.
 
 Dependencies:
-- Python 2.6
+- Python 2.6/2.7
 - BeautifulSoup
 
 Installation/usage:
 - Extract and/or place the files wherever you like
 - Run whatmigrate.py
-- Edit the configuration-file created in ~/.whatmigrate, only the outputdir is required
+- Edit the configuration-file created in ~/.whatmigrate, only outputdir is required
 
 Todo:
 - Fallback to filesizes if no numbers are used in filenames
