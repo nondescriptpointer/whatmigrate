@@ -41,7 +41,7 @@ class Migrator:
                 print "   %s => %s" % (mapping[0],mapping[1])
 
         # Audio files mapping
-        print "  Rename audio files. Current names:"
+        print "  Rename audio files. New names:"
         originalAudio = []
         for oldfile in oldfiles:
             if os.path.splitext(oldfile)[-1] in self.audioformats:
