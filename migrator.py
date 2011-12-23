@@ -10,13 +10,16 @@ class Migrator:
         self.outputdir = output
     
     def execute(self, torrentinfo, torrentfolder):
+        # remove trailing slash 
+        if torrentfolder[-1] == '/': torrentfolder = torrentfolder[:-1]
+
         self.torrentinfo = torrentinfo
         self.torrentfolder = torrentfolder
         self.mappings = [] # keeps filename mappings and offsets
 
         # Rename folder
         if torrentinfo['info']['name'] != os.path.basename(torrentfolder):
-            print "  Rename folder %s => %s" % (os.path.dirname(torrentfolder), torrentinfo['info']['name'])
+            print "  Rename folder %s => %s" % (os.path.basename(torrentfolder), torrentinfo['info']['name'])
 
         # Get a list of all old files
         oldfiles = []
