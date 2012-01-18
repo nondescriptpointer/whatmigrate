@@ -18,8 +18,10 @@ directory.
 Dependencies:
 - Python 2.6/2.7
 - BeautifulSoup
+- argparse
 
 Installation/usage:
+- Install dependencies (Debian/Ubuntu: sudo apt-get python python-argparse python-beautifulsoup)
 - Extract and/or place the files wherever you like
 - Run whatmigrate.py
 - Edit the configuration-file created in ~/.whatmigrate, only outputdir is required
