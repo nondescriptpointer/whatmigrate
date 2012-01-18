@@ -72,7 +72,7 @@ class Connection:
     # search torrents
     def searchTorrents(self,searchstring):
         html = self.makeRequest(self.basepath+"torrents.php?searchstr="+urllib.quote(searchstring))
-        soup = BeautifulSoup(html)
+        soup = BeautifulSoup(html, convertEntities=BeautifulSoup.HTML_ENTITIES)
         table = soup.find("table", {"id":"torrent_table"})
         if not table: return False
         groups = table.findAll("tr")
@@ -115,39 +115,5 @@ class Connection:
         torrentlink = result.group().replace("&amp;","&")
         return self.makeRequest(self.basepath+torrentlink)
 
-    """
-    def searchLog(self,searchstring):
-        self.clearCurl()
-        self.curl.setopt(pycurl.URL,"https://ssl.what.cd/log.php?search="+urllib.quote(searchstring))
-        self.curl.perform()
-
-        if not self.loggedIn(self.rec.contents:
-            self.logintries += 1
-            if(self.logintries > 1):
-                print "Site login failed, check your configuration"
-            self.login()
-            self.searchLog(searchstring)
-            
-        return self.parseLogSearchResult(self.rec.contents)
-    def parseLogSearchResult(self,html):
-        if html.find('<td colspan="2">Nothing found!</td>') is not -1:
-            return None
-        results = []
-        # find all possible candidates
-        result = re_main.finditer(html)
-        for match in result:
-            resultline = match.group(0)
-            # parse candidate
-            subresult = re_detail.search(resultline)
-            if subresult:
-                subresult = subresult.groups()
-                # parse reason to get replacement torrent
-                replacement = re_replacement.search(subresult[1])
-                if replacement:
-                    replacement = replacement.groups()
-                    subresult = (subresult[0],replacement[0],replacement[1])
-                results.append(subresult)
-        return results
-    """
     def close(self):
         self.curl.close()
