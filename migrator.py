@@ -1,7 +1,7 @@
 
 import re, os, tempfile, shutil, StringIO, math, hashlib
 from operator import itemgetter
-from utils import humanize, hashcheck, colors
+from utils import humanize, hashcheck
 import exporter
 
 class Migrator:
