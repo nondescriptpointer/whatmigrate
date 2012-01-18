@@ -20,8 +20,8 @@ class Main:
         self.cfg = ConfigParser.ConfigParser()
         if not self.cfg.read(os.path.expanduser("~/.whatmigrate")):
             print "Creating configuration file. Edit ~/.whatmigrate to configure."
-            self.cgs.add_section("general")
-            self.cfg.set("outputdir","")
+            self.cfg.add_section("general")
+            self.cfg.set("general","outputdir","")
             self.cfg.add_section("rtorrent")
             self.cfg.set("rtorrent","xmlrpc_proxy","")
             self.cfg.add_section("what.cd")
