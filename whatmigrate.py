@@ -18,17 +18,33 @@ class Main:
 
         # parse configuration file (or create if it doesn't exist)
         self.cfg = ConfigParser.ConfigParser()
+        defaultoptions = (
+            ("general",(("outputdir",""),)),
+            ("rtorrent",(("xmlrpc_proxy",""),("progressive","1"))),
+            ("what.cd",(("username",""),("password",""),("use_ssl","1")))
+        )
         if not self.cfg.read(os.path.expanduser("~/.whatmigrate")):
             print "Creating configuration file. Edit ~/.whatmigrate to configure."
-            self.cfg.add_section("general")
-            self.cfg.set("general","outputdir","")
-            self.cfg.add_section("rtorrent")
-            self.cfg.set("rtorrent","xmlrpc_proxy","")
-            self.cfg.add_section("what.cd")
-            self.cfg.set("what.cd","username","")
-            self.cfg.set("what.cd","password","")
-            self.cfg.set("what.cd","use_ssl","1")
+            for section in defaultoptions:
+                self.cfg.add_section(section[0])
+                for item in section[1]:
+                    self.cfg.set(section[0],item[0],item[1])
             self.cfg.write(open(os.path.expanduser("~/.whatmigrate"),"wb"))
+        else:
+            # check if all settings are in the config file
+            written = False
+            for section in defaultoptions:
+                if not self.cfg.has_section(section[0]): 
+                    self.cfg.add_section(section[0])
+                    written = True
+                for item in section[1]:
+                    if not self.cfg.has_option(section[0],item[0]):
+                        self.cfg.set(section[0],item[0],item[1])
+                        written = True
+            if written:    
+                self.cfg.write(open(os.path.expanduser("~/.whatmigrate"),"wb"))
+
+
         # need an output dir to run script
         if not self.cfg.get("general","outputdir"):
             sys.exit("Please configure the output directory in ~/.whatmigrate.")
@@ -36,7 +52,7 @@ class Main:
         # initialize site connection if needed
         self.siteconnection = None
         if self.cfg.get("what.cd","username") and self.cfg.get("what.cd","password"):
-            self.siteconnection = siteconnection.Connection(self.cfg.get("what.cd","username"),self.cfg.get("what.cd","password"),self.cfg.get("what.cd","use_ssl"))
+            self.siteconnection = siteconnection.Connection(self.cfg.get("what.cd","username"),self.cfg.get("what.cd","password"),int(self.cfg.get("what.cd","use_ssl")))
         
         # initialize migrator
         self.migrator = migrator.Migrator(self.cfg.get("general","outputdir"))
@@ -73,15 +89,25 @@ class Main:
         # setup client connection
         torrentclient = clientconnection.Rtorrent(self.cfg.get("rtorrent","xmlrpc_proxy"))
         # get a list of unregistered torrents
-        print "Scanning for unregistered torrents... (can take a few minutes)"
-        torrents = torrentclient.get_unregistered_torrents()
-        if not len(torrents):
-            print "No unregistered torrents found"
-            exit()
-        print "%d unregistered torrents found\n" % (len(torrents),)
-        # run through torrents
-        for torrentfile, torrentfolder in torrents:
-            # look for replacement
+        if int(self.cfg.get("rtorrent","progressive")):
+            print "Scanning for unregistered torrents..."
+            count = 0
+            for torrentfile, torrentfolder in torrentclient.unregistered_torrents_iter():
+                self.guidedExecute(torrentfile,torrentfolder)
+                count += 1
+            if count == 0:
+                print "No unregistered torrents found"
+                exit()
+        else:
+            print "Scanning for unregistered torrents... (can take a few minutes)"
+            torrents = torrentclient.get_unregistered_torrents()
+            if not len(torrents):
+                print "No unregistered torrents found"
+                exit()
+            print "%d unregistered torrents found\n" % (len(torrents),)
+            for torrentfile, torrentfolder in torrents:
+                self.guidedExecute(torrentfile,torrentfolder)
+    def guidedExecute(self,torrentfile,torrentfolder):
             basename = os.path.splitext(os.path.basename(torrentfile))[0]
             print basename
             parts = basename.split(" - ")
