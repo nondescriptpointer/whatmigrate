@@ -141,6 +141,7 @@ class Migrator:
 
     def simpleRepad(self,originalAudio,newAudio):
         for i in range(len(self.mappings)):
+            sizeOld = sizeNew = -1
             # look for mapping in new and old
             for old in originalAudio:
                 if old[0] == self.mappings[i][0]:
@@ -149,8 +150,10 @@ class Migrator:
             for new in newAudio:
                 if new[0] == self.mappings[i][1]:
                     sizeNew = new[1]
+                    break
             # use difference as padding
-            self.mappings[i] = (self.mappings[i][0],self.mappings[i][1],sizeNew - sizeOld)
+            if sizeNew > -1 and sizeOld > -1:
+                self.mappings[i] = (self.mappings[i][0],self.mappings[i][1],sizeNew - sizeOld)
 
 
     def hashCheck(self):
