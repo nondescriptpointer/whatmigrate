@@ -41,7 +41,7 @@ class Migrator:
                 print "   %s => %s" % (mapping[0],mapping[1])
 
         # Audio files mapping
-        print "  Rename audio files. New names:"
+        print "  Rename audio files. Old name => new name"
         originalAudio = []
         for oldfile in oldfiles:
             if os.path.splitext(oldfile)[-1] in self.audioformats:
@@ -53,23 +53,22 @@ class Migrator:
                 newAudio.append((os.path.join(*newfile['path']),newfile['length']))
         newAudio = sorted(newAudio, key=itemgetter(0))
 
-        # Print original files with number
-        counter = 1
-        for new in newAudio:
-            print "   File %d: %s (%s)" % (counter, new[0], humanize.humanize(new[1]))
-            counter += 1
-
-        # Ask for each new file to verify the match
-        print "  Please verify renames (press enter/correct number):"
-        counter = 1
-        for old in originalAudio:
-            userinput = raw_input("   %s (%s) [File %d: %s (%s)] " % (old[0], humanize.humanize(old[1]), counter, newAudio[counter-1][0], humanize.humanize(newAudio[counter-1][1])))
-            if userinput and userinput.isdigit() and int(userinput) in range(1,len(newAudio)+1):
-                mapto = int(userinput) - 1
-            else:
-                mapto = counter - 1
-            self.mappings.append((old[0],newAudio[mapto][0],0))
-            counter += 1
+        # Audio file mapping
+        for i in range(0,len(originalAudio)):
+            print "   #%d: %s => %s (%s => %s)" % (i+1, originalAudio[i][0], newAudio[i][0], humanize.humanize(originalAudio[i][1]), humanize.humanize(newAudio[i][1]))
+        userinput = raw_input("  Is this correct? (y/n) [y] ")
+        if userinput in ("y","yes",""):
+            for i in range(0,len(originalAudio)):
+                self.mappings.append((originalAudio[i][0],newAudio[i][0],0))
+        else:
+            print "  Correct renames (press enter/correct number):"
+            for i in range(0,len(newAudio)):
+                userinput = raw_input("   %s (%s) [#%d: %s (%s)] " % (newAudio[i][0], humanize.humanize(newAudio[i][1]), i+1, originalAudio[i][0], humanize.humanize(originalAudio[i][1])))
+                if userinput and userinput.isdigit() and int(userinput) in range(1,len(newAudio)+1):
+                    mapto = int(userinput)-1
+                else:
+                    mapto = i
+                self.mappings.append((originalAudio[mapto][0],newAudio[i][0],0))
 
         # Check filesize
         sumNew = 0
