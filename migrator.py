@@ -1,4 +1,3 @@
-
 import re, os, tempfile, shutil, StringIO, math, hashlib
 from operator import itemgetter
 from utils import humanize, hashcheck, torrentdecode
@@ -49,7 +48,8 @@ class Migrator:
         originalAudio = []
         for oldfile in oldfiles:
             if os.path.splitext(oldfile)[-1] in self.audioformats:
-                originalAudio.append((unicode(oldfile),os.path.getsize(os.path.join(torrentfolder,oldfile))))
+                if type(oldfile) != unicode: oldfile = unicode(oldfile,'utf-8')
+                originalAudio.append((oldfile,os.path.getsize(os.path.join(torrentfolder,oldfile))))
         originalAudio = sorted(originalAudio, key=itemgetter(0))
         newAudio = []
         for newfile in self.torrentinfo['info']['files']:
@@ -59,10 +59,12 @@ class Migrator:
 
         # Audio file mapping
         for i in range(0,len(originalAudio)):
+            if i > len(newAudio)-1: break
             print "   #%d: %s => %s (%s => %s)" % (i+1, originalAudio[i][0], newAudio[i][0], humanize.humanize(originalAudio[i][1]), humanize.humanize(newAudio[i][1]))
         userinput = raw_input("  Is this correct? (y/n) [y] ")
         if userinput in ("y","yes",""):
             for i in range(0,len(originalAudio)):
+                if i > len(newAudio)-1: break
                 self.mappings.append((originalAudio[i][0],newAudio[i][0],0))
         else:
             print "  Correct renames (press enter/correct number):"
