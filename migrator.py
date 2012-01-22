@@ -49,7 +49,7 @@ class Migrator:
         originalAudio = []
         for oldfile in oldfiles:
             if os.path.splitext(oldfile)[-1] in self.audioformats:
-                originalAudio.append((unicode(oldfile,'utf-8'),os.path.getsize(os.path.join(torrentfolder,oldfile))))
+                originalAudio.append((unicode(oldfile),os.path.getsize(os.path.join(torrentfolder,oldfile))))
         originalAudio = sorted(originalAudio, key=itemgetter(0))
         newAudio = []
         for newfile in self.torrentinfo['info']['files']:
