@@ -115,9 +115,10 @@ class Migrator:
                 if userinput and userinput.lower() in ("y","yes"):
                     self.torrentclient.remove_torrent(torrentid)
             # offer data deletion
-            userinput = raw_input("   Remove original data at %s? (y/n) [n] " % (torrentfolder.encode('utf-8'),))
-            if userinput and userinput.lower() in ("y","yes"):
-                shutil.rmtree(torrentfolder)
+            if len(oldfiles) > 1: # single file torrents might not have a directory, so don't offer deletion in that case 
+                userinput = raw_input("   Remove original data '%s'? (y/n) [n] " % (torrentfolder.encode('utf-8'),))
+                if userinput and userinput.lower() in ("y","yes"):
+                    shutil.rmtree(torrentfolder)
             # export
             targetdir = os.path.join(self.outputdir,self.torrentinfo['info']['name'])
             print "   Exporting to %s" % (targetdir,)

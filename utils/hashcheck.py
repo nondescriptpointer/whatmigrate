@@ -13,7 +13,7 @@ def pieces_generator(info,datafolder):
         piece = ""
         for file_info in info['files']:
             path = os.path.join(datafolder,*file_info['path'])
-            sfile = open(path.decode('UTF-8','rb'))
+            sfile = open(path.decode('UTF-8'), 'rb')
             while True:
                 piece += sfile.read(piece_length-len(piece))
                 if len(piece) != piece_length:
