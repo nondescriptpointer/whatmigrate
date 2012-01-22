@@ -13,7 +13,7 @@ def export(torrentinfo,datafolder,mappings,destination):
         f.truncate(newfile['length'])
         # if mapping exists, write original data to the file
         for mapping in mappings:
-            if mapping[1] == os.path.join(*newfile['path']):
+            if mapping[1] == unicode(os.path.join(*newfile['path']),'utf-8'):
                 original = open(os.path.join(datafolder,mapping[0]),'rb')
                 write_length = newfile['length']
                 if mapping[2] < 0: original.seek(-mapping[2])

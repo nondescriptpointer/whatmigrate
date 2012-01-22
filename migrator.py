@@ -22,8 +22,8 @@ class Migrator:
         self.mappings = [] # keeps filename mappings and offsets
 
         # Rename folder
-        if self.torrentinfo['info']['name'] != os.path.basename(torrentfolder):
-            print "  Rename folder %s => %s" % (os.path.basename(torrentfolder), self.torrentinfo['info']['name'])
+        if unicode(self.torrentinfo['info']['name'],'utf-8') != os.path.basename(torrentfolder):
+            print "  Rename folder %s => %s" % (os.path.basename(torrentfolder), unicode(self.torrentinfo['info']['name'],'utf-8'))
 
         # Get a list of all old files
         oldfiles = []
@@ -54,7 +54,7 @@ class Migrator:
         newAudio = []
         for newfile in self.torrentinfo['info']['files']:
             if os.path.splitext(os.path.join(*newfile['path']))[-1] in self.audioformats:
-                newAudio.append((os.path.join(*newfile['path']),newfile['length']))
+                newAudio.append((unicode(os.path.join(*newfile['path']),'utf-8'),newfile['length']))
         newAudio = sorted(newAudio, key=itemgetter(0))
 
         # Audio file mapping
@@ -67,7 +67,7 @@ class Migrator:
         else:
             print "  Correct renames (press enter/correct number):"
             for i in range(0,len(newAudio)):
-                userinput = raw_input("   %s (%s) [#%d: %s (%s)] " % (newAudio[i][0], humanize.humanize(newAudio[i][1]), i+1, originalAudio[i][0], humanize.humanize(originalAudio[i][1])))
+                userinput = raw_input("   %s (%s) [#%d: %s (%s)] " % (newAudio[i][0].encode('utf-8'), humanize.humanize(newAudio[i][1]), i+1, originalAudio[i][0].encode('utf-8'), humanize.humanize(originalAudio[i][1])))
                 if userinput and userinput.isdigit() and int(userinput) in range(1,len(newAudio)+1):
                     mapto = int(userinput)-1
                 else:
@@ -112,7 +112,7 @@ class Migrator:
                 if userinput and userinput.lower() in ("y","yes"):
                     self.torrentclient.remove_torrent(torrentid)
             # offer data deletion
-            userinput = raw_input("   Remove original data at %s? (y/n) [n] " % (torrentfolder,))
+            userinput = raw_input("   Remove original data at %s? (y/n) [n] " % (torrentfolder.encode('utf-8'),))
             if userinput and userinput.lower() in ("y","yes"):
                 shutil.rmtree(torrentfolder)
             # export

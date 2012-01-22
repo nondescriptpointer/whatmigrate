@@ -2,6 +2,7 @@
 
 import os, re, ConfigParser, argparse, sys
 import exporter, siteconnection, clientconnection, migrator
+from BeautifulSoup import BeautifulSoup
 try: import readline # not supported on all platforms
 except ImportError: pass
 
@@ -83,9 +84,10 @@ class Main:
         if self.args.torrent:
             torrentinfo = self.grabFromInput(self.args.torrent)
         else:
-            torrentinfo = self.queryReplacement(os.path.dirname(self.args.datadir))
+            searchterm = unicode(os.path.dirname(self.args.datadir),'utf-8')
+            torrentinfo = self.queryReplacement(searchterm)
         if torrentinfo:
-            self.migrator.execute(torrentinfo,self.args.datadir)
+            self.migrator.execute(torrentinfo,unicode(self.args.datadir,'utf-8'))
 
     # guided migration using torrent client to read 
     def guidedMigration(self):
@@ -110,6 +112,7 @@ class Main:
                 self.guidedExecute(torrentid,torrentfile,torrentfolder)
     def guidedExecute(self,torrentid,torrentfile,torrentfolder):
             basename = os.path.splitext(os.path.basename(torrentfile))[0]
+            basename = unicode(str(BeautifulSoup(basename,convertEntities=BeautifulSoup.HTML_ENTITIES)),'utf-8')
             print basename
             parts = basename.split(" - ")
             searchstring = parts[0] + " - " + parts[1]
@@ -175,7 +178,7 @@ class Main:
         # search site for this album 
         if not self.siteconnection:
             sys.exit("You need to put your username and password in .whatmigrate to do a site search.")
-        if readline: readline.set_startup_hook(lambda: readline.insert_text(searchFor))
+        if readline: readline.set_startup_hook(lambda: readline.insert_text(searchFor.encode('utf-8')))
         userinput = raw_input(" Search What.CD for: ")
         if readline: readline.set_startup_hook()
         results = self.siteconnection.searchTorrents(userinput)
