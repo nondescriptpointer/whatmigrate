@@ -67,6 +67,7 @@ class Migrator:
         else:
             print "  Correct renames (press enter/correct number):"
             for i in range(0,len(newAudio)):
+                if(i > len(originalAudio)-1): break
                 userinput = raw_input("   %s (%s) [#%d: %s (%s)] " % (newAudio[i][0].encode('utf-8'), humanize.humanize(newAudio[i][1]), i+1, originalAudio[i][0].encode('utf-8'), humanize.humanize(originalAudio[i][1])))
                 if userinput and userinput.isdigit() and int(userinput) in range(1,len(newAudio)+1):
                     mapto = int(userinput)-1
