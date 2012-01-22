@@ -1,7 +1,6 @@
 #!/usr/bin/python2
 
 import os, re, ConfigParser, argparse, sys
-from utils import torrentdecode
 import exporter, siteconnection, clientconnection, migrator
 try: import readline # not supported on all platforms
 except ImportError: pass
@@ -13,13 +12,13 @@ class Main:
         group = parser.add_argument_group('manual migration')
         group.add_argument('datadir',help='directory of old torrent data',nargs='?')
         group.add_argument('torrent',help='new .torrent file, torrent id or torrent url (optional)',nargs='?')
-        parser.add_argument('--version',action='version',version='whatmigrate 0.1')
+        parser.add_argument('--version',action='version',version='whatmigrate 0.2')
         self.args = parser.parse_args()
 
         # parse configuration file (or create if it doesn't exist)
         self.cfg = ConfigParser.ConfigParser()
         defaultoptions = (
-            ("general",(("outputdir",""),)),
+            ("general",(("outputdir",""),("torrentdir",""))),
             ("rtorrent",(("xmlrpc_proxy",""),("progressive","1"))),
             ("what.cd",(("username",""),("password",""),("use_ssl","1")))
         )
@@ -44,10 +43,14 @@ class Main:
             if written:    
                 self.cfg.write(open(os.path.expanduser("~/.whatmigrate"),"wb"))
 
-
         # need an output dir to run script
         if not self.cfg.get("general","outputdir"):
             sys.exit("Please configure the output directory in ~/.whatmigrate.")
+
+        # initialize torrentclient
+        self.torrentclient = None
+        if self.cfg.get("rtorrent","xmlrpc_proxy"):
+            self.torrentclient = clientconnection.Rtorrent(self.cfg.get("rtorrent","xmlrpc_proxy"))
 
         # initialize site connection if needed
         self.siteconnection = None
@@ -55,7 +58,7 @@ class Main:
             self.siteconnection = siteconnection.Connection(self.cfg.get("what.cd","username"),self.cfg.get("what.cd","password"),int(self.cfg.get("what.cd","use_ssl")))
         
         # initialize migrator
-        self.migrator = migrator.Migrator(self.cfg.get("general","outputdir"))
+        self.migrator = migrator.Migrator(self.cfg.get("general","outputdir"),self.torrentclient,self.cfg.get("general","torrentdir"))
         
         # go!
         self.start()
@@ -86,35 +89,33 @@ class Main:
 
     # guided migration using torrent client to read 
     def guidedMigration(self):
-        # setup client connection
-        torrentclient = clientconnection.Rtorrent(self.cfg.get("rtorrent","xmlrpc_proxy"))
         # get a list of unregistered torrents
         if int(self.cfg.get("rtorrent","progressive")):
             print "Scanning for unregistered torrents..."
             count = 0
-            for torrentfile, torrentfolder in torrentclient.unregistered_torrents_iter():
-                self.guidedExecute(torrentfile,torrentfolder)
+            for torrentid, torrentfile, torrentfolder in self.torrentclient.unregistered_torrents_iter():
+                self.guidedExecute(torrentid,torrentfile,torrentfolder)
                 count += 1
             if count == 0:
                 print "No unregistered torrents found"
                 exit()
         else:
             print "Scanning for unregistered torrents... (can take a few minutes)"
-            torrents = torrentclient.get_unregistered_torrents()
+            torrents = self.torrentclient.get_unregistered_torrents()
             if not len(torrents):
                 print "No unregistered torrents found"
                 exit()
             print "%d unregistered torrents found\n" % (len(torrents),)
-            for torrentfile, torrentfolder in torrents:
-                self.guidedExecute(torrentfile,torrentfolder)
-    def guidedExecute(self,torrentfile,torrentfolder):
+            for torrentid, torrentfile, torrentfolder in torrents:
+                self.guidedExecute(torrentid,torrentfile,torrentfolder)
+    def guidedExecute(self,torrentid,torrentfile,torrentfolder):
             basename = os.path.splitext(os.path.basename(torrentfile))[0]
             print basename
             parts = basename.split(" - ")
             searchstring = parts[0] + " - " + parts[1]
             torrentinfo = self.queryReplacement(searchstring)
             if torrentinfo:
-                self.migrator.execute(torrentinfo,torrentfolder)
+                self.migrator.execute(torrentinfo,torrentfolder,torrentid)
             print ""
 
     # read torrent file
@@ -135,7 +136,7 @@ class Main:
         if userinput.isdigit():
             if not self.siteconnection:
                 sys.exit("You need to put your username and password in .whatmigrate to download a torrent.")
-            torrentdata = self.siteconnection.getTorrentFile(int(userinput))
+            torrentfile, torrentdata = self.siteconnection.getTorrentFile(int(userinput))
         # torrent permalink
         elif userinput.find('http://') != -1 or userinput.find('https://') != -1:
             if not self.siteconnection:
@@ -143,15 +144,16 @@ class Main:
             regex = re.compile(r"torrents\.php\?.*id=(\d+)")
             result = regex.search(userinput)
             if result:
-                torrentdata = self.siteconnection.getTorrentFile(int(result.group(1)))
+                torrentfile, torrentdata = self.siteconnection.getTorrentFile(int(result.group(1)))
             else:
                 sys.exit("URL not recognized.")
         # path
         elif userinput:
             torrentdata = self.readTorrentFile(userinput)
+            torrentfile = os.path.basename(userinput)
         # if there's data, parse and return 
         if torrentdata:
-            return torrentdecode.decode(torrentdata)
+            return (torrentfile, torrentdata)
         else:
             return False
 
@@ -193,8 +195,8 @@ class Main:
             userinput = raw_input(" Try migration to one of these results? (resultnumber/n) ")
             if userinput and userinput.isdigit() and int(userinput) in range(1,len(flattened)+1):
                 # download the torrent file
-                torrentdata = self.siteconnection.getTorrentFile(flattened[int(userinput)-1]['id'])
-                return torrentdecode.decode(torrentdata)
+                torrent_filename, torrentdata = self.siteconnection.getTorrentFile(flattened[int(userinput)-1]['id'])
+                return (torrent_filename, torrentdata)
             else:
                 return self.queryReplacement(searchFor)
         else:

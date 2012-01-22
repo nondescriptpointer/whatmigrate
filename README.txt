@@ -10,25 +10,36 @@ unregistered torrent in your client. You can also specify a directory you want
 to migrate and optionally a torrent id, url or file to migrate to. See -h to
 figure out the usage.
 
-Please note that this script is still experimental, your results may vary. Once
-it becomes mature enough it will also allow you to replace the torrent and data
-from the script itself. For now, it just exports the new data to a preconfigured
-directory.
+Please note that this script is still experimental, your results may vary. 
 
 Dependencies:
 - Python 2.6/2.7
 - BeautifulSoup
 - argparse
+Debian/Ubuntu: sudo apt-get python python-argparse python-beautifulsoup
 
 Installation/usage:
-- Install dependencies (Debian/Ubuntu: sudo apt-get python python-argparse python-beautifulsoup)
+- Install dependencies
 - Extract and/or place the files wherever you like
 - Run whatmigrate.py
 - Edit the configuration-file created in ~/.whatmigrate, only outputdir is required
+
+Configuration options:
+[general]
+outputdir    - the directory the data of the migration is exported to, for example: 
+               your torrent clients destination directory
+torrentdir   - the directory you want the torrent files to be saved in, for example: 
+               the watched rtorrent folder
+[rtorrent]
+xmlrpc_proxy - the xml-rpc proxy of your rtorrent client
+progressive  - scan for torrents progressively instead of finding them all beforehand, speeds up search
+[what.cd]
+username &   - your login credential
+password
+use_ssl      - use ssl for the requests to the website
 
 Todo:
 - Fallback to filesizes if no numbers are used in filenames
 - Implement piece searching (currently disabled because it's too slow)
 - Better error handling
 - Add support for other torrent clients (eg Transmission)
-- Offer to remove data and torrent and replace it with new data and torrent

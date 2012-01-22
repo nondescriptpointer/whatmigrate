@@ -1,5 +1,5 @@
 # Class that handles What.CD authentication, can download torrents and can search the site log
-import os,pycurl,urllib,re,sys
+import os,pycurl,urllib,re,sys,urllib2
 from BeautifulSoup import BeautifulSoup
 
 re_main = re.compile(r'<span style="color: red;">(.*?)</span>')
@@ -9,8 +9,11 @@ re_replacement = re.compile(r'(.*?) \( <a href="torrents\.php\?torrentid=(\d+)">
 class Receiver:
     def __init__(self):
         self.contents = ""
+        self.header = ""
     def body_callback(self, buffer):
         self.contents = self.contents + buffer
+    def header_callback(self,buffer):
+        self.header = self.header + buffer
 
 class Connection:
     def __init__(self,user,passw,use_ssl):
@@ -29,10 +32,12 @@ class Connection:
         self.curl.setopt(pycurl.COOKIEFILE,cookiefile)
         self.curl.setopt(pycurl.COOKIEJAR,cookiefile)
         self.curl.setopt(pycurl.WRITEFUNCTION,self.rec.body_callback)
+        self.curl.setopt(pycurl.HEADERFUNCTION,self.rec.header_callback)
 
     # to reset curl after each request
     def clearCurl(self):
         self.rec.contents = ""
+        self.rec.header = ""
         self.curl.setopt(pycurl.POST,0)
         self.curl.setopt(pycurl.POSTFIELDS,"")
 
@@ -113,7 +118,13 @@ class Connection:
         result = re_torrentlink.search(result)
         if not result: sys.exit("Could not find torrent with id %s." % (torrentid,))
         torrentlink = result.group().replace("&amp;","&")
-        return self.makeRequest(self.basepath+torrentlink)
+        torrentdata = self.makeRequest(self.basepath+torrentlink)
+        # parse header to get filename
+        torrent_filename = torrentid
+        for line in iter(self.rec.header.splitlines()):
+            if 'filename=' in line:
+                torrent_filename = line[line.find('filename=')+10:-1]
+        return (torrent_filename, torrentdata)
 
     def close(self):
         self.curl.close()

@@ -1,25 +1,29 @@
 
 import re, os, tempfile, shutil, StringIO, math, hashlib
 from operator import itemgetter
-from utils import humanize, hashcheck
+from utils import humanize, hashcheck, torrentdecode
 import exporter
 
 class Migrator:
-    def __init__(self, output):
+    def __init__(self, output, client = None, boundfolder = None):
         self.audioformats = (".flac",".mp3",".ogg",".aac",".ac3",".dts")
         self.outputdir = output
+        self.torrentclient = client
+        self.boundfolder = boundfolder
     
-    def execute(self, torrentinfo, torrentfolder):
+    def execute(self, torrentinfo, torrentfolder, torrentid = None):
         # remove trailing slash 
         if torrentfolder[-1] == '/': torrentfolder = torrentfolder[:-1]
 
-        self.torrentinfo = torrentinfo
+        self.torrentname = torrentinfo[0]
+        self.torrentdata = torrentinfo[1]
+        self.torrentinfo = torrentdecode.decode(torrentinfo[1])
         self.torrentfolder = torrentfolder
         self.mappings = [] # keeps filename mappings and offsets
 
         # Rename folder
-        if torrentinfo['info']['name'] != os.path.basename(torrentfolder):
-            print "  Rename folder %s => %s" % (os.path.basename(torrentfolder), torrentinfo['info']['name'])
+        if self.torrentinfo['info']['name'] != os.path.basename(torrentfolder):
+            print "  Rename folder %s => %s" % (os.path.basename(torrentfolder), self.torrentinfo['info']['name'])
 
         # Get a list of all old files
         oldfiles = []
@@ -32,7 +36,7 @@ class Migrator:
         for oldfile in oldfiles:
             extension = os.path.splitext(oldfile)[-1]
             if extension not in self.audioformats:
-                for newfile in torrentinfo['info']['files']:
+                for newfile in self.torrentinfo['info']['files']:
                     if os.path.splitext(os.path.join(*newfile['path']))[-1] == extension and os.path.getsize(os.path.join(torrentfolder,oldfile)) == newfile['length']:
                         self.mappings.append((oldfile,os.path.join(*newfile['path']),0))
         if len(self.mappings) > 0:
@@ -48,7 +52,7 @@ class Migrator:
                 originalAudio.append((oldfile,os.path.getsize(os.path.join(torrentfolder,oldfile))))
         originalAudio = sorted(originalAudio, key=itemgetter(0))
         newAudio = []
-        for newfile in torrentinfo['info']['files']:
+        for newfile in self.torrentinfo['info']['files']:
             if os.path.splitext(os.path.join(*newfile['path']))[-1] in self.audioformats:
                 newAudio.append((os.path.join(*newfile['path']),newfile['length']))
         newAudio = sorted(newAudio, key=itemgetter(0))
@@ -85,7 +89,7 @@ class Migrator:
 
         # Hash check
         print "  Hash checking migration..."
-        results = self.hashCheck()
+        tempdir, results = self.hashCheck()
 
         # If bad result suggest hash recognition
         """
@@ -100,18 +104,61 @@ class Migrator:
         """
 
         # Offer migration
-        userinput = raw_input("  Execute? (y/n) ")
+        userinput = raw_input("  Execute? (y/n) [n] ")
         if userinput and userinput.lower() in ("y","yes"):
-            targetdir = os.path.join(self.outputdir,torrentinfo['info']['name'])
-            if not os.path.isdir(targetdir):
-                os.makedirs(targetdir)
-            print "  Exporting to %s" % (targetdir,)
-            exporter.export(self.torrentinfo,self.torrentfolder,self.mappings,targetdir)
+            # offer torrent detion
+            if torrentid and self.torrentclient:
+                userinput = raw_input("   Remove torrent from client? (y/n) [n] ")
+                if userinput and userinput.lower() in ("y","yes"):
+                    self.torrentclient.remove_torrent(torrentid)
+            # offer data deletion
+            userinput = raw_input("   Remove original data at %s? (y/n) [n] " % (torrentfolder,))
+            if userinput and userinput.lower() in ("y","yes"):
+                shutil.rmtree(torrentfolder)
+            # export
+            targetdir = os.path.join(self.outputdir,self.torrentinfo['info']['name'])
+            print "   Exporting to %s" % (targetdir,)
+            shutil.move(tempdir+'/',targetdir);
+            # offer adding torrent to client
+            if self.boundfolder:
+                userinput = raw_input("   Add torrent? (y/n) [n] ")
+                if userinput and userinput.lower() in ("y","yes"):
+                    f = open(os.path.join(self.boundfolder,self.torrentname),'w')
+                    f.write(self.torrentdata)
+                    f.close()
             print "  Done"
             return True
         else:
+            shutil.rmtree(tempdir)
             return False
 
+    def simpleRepad(self,originalAudio,newAudio):
+        for i in range(len(self.mappings)):
+            sizeOld = sizeNew = -1
+            # look for mapping in new and old
+            for old in originalAudio:
+                if old[0] == self.mappings[i][0]:
+                    sizeOld = old[1] 
+                    break
+            for new in newAudio:
+                if new[0] == self.mappings[i][1]:
+                    sizeNew = new[1]
+                    break
+            # use difference as padding
+            if sizeNew > -1 and sizeOld > -1:
+                self.mappings[i] = (self.mappings[i][0],self.mappings[i][1],sizeNew - sizeOld)
+
+    def hashCheck(self):
+        # create temp folder
+        tempdir = tempfile.mkdtemp("whatmigrate_hashcheck")
+        # export
+        exporter.export(self.torrentinfo,self.torrentfolder,self.mappings,tempdir)
+        # hash check
+        results = hashcheck.hashcheck(self.torrentinfo,tempdir)
+        print "  %d of %d pieces correct " % (results[0],results[1])+"(%d%%)" % (round(float(results[0])/results[1]*100),)
+        return (tempdir,results)
+
+    # unused / slow
     def hashRecognition(self):
         print "   Executing hash recognition... (may take a while)"
         piece_length = self.torrentinfo['info']['piece length']
@@ -138,36 +185,6 @@ class Migrator:
                         break;
             offset += check['length']
         print "   Hash recognition succeeded for %d of %d files" % (numFound,numFiles)
-
-    def simpleRepad(self,originalAudio,newAudio):
-        for i in range(len(self.mappings)):
-            sizeOld = sizeNew = -1
-            # look for mapping in new and old
-            for old in originalAudio:
-                if old[0] == self.mappings[i][0]:
-                    sizeOld = old[1] 
-                    break
-            for new in newAudio:
-                if new[0] == self.mappings[i][1]:
-                    sizeNew = new[1]
-                    break
-            # use difference as padding
-            if sizeNew > -1 and sizeOld > -1:
-                self.mappings[i] = (self.mappings[i][0],self.mappings[i][1],sizeNew - sizeOld)
-
-
-    def hashCheck(self):
-        # create temp folder
-        tempdir = tempfile.mkdtemp("whatmigrate_hashcheck")
-        # export
-        exporter.export(self.torrentinfo,self.torrentfolder,self.mappings,tempdir)
-        # hash check
-        results = hashcheck.hashcheck(self.torrentinfo,tempdir)
-        print "  %d of %d pieces correct " % (results[0],results[1])+"(%d%%)" % (round(float(results[0])/results[1]*100),)
-        shutil.rmtree(tempdir)
-        return results
-
-    # unused/slow
     def searchPieceInFile(self,path,piece,starting_offset,piece_length):
         # get data from file
         f = open(path,'rb')
