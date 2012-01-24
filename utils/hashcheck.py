@@ -5,6 +5,7 @@
 
 import StringIO,os
 import torrentdecode, hashlib
+from BeautifulSoup import BeautifulSoup
 
 def pieces_generator(info,datafolder):
     # Yield pieces from download file(s).
@@ -13,7 +14,7 @@ def pieces_generator(info,datafolder):
         piece = ""
         for file_info in info['files']:
             path = os.path.join(datafolder,*file_info['path'])
-            sfile = open(path.decode('UTF-8'), 'rb')
+            sfile = open(BeautifulSoup(path).contents[0].encode('UTF-8'), 'rb')
             while True:
                 piece += sfile.read(piece_length-len(piece))
                 if len(piece) != piece_length:
@@ -25,7 +26,7 @@ def pieces_generator(info,datafolder):
             yield piece
     else: # single file torrent
         path = datafolder 
-        sfile = open(path.decode('UTF-8'), "rb")
+        sfile = open(BeautifulSoup(path).contents[0].encode('UTF-8'), "rb")
         while True:
             piece = sfile.read(piece_length)
             if not piece:

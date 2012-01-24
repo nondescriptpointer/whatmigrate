@@ -1,6 +1,7 @@
 import re, os, tempfile, shutil, StringIO, math, hashlib
 from operator import itemgetter
 from utils import humanize, hashcheck, torrentdecode
+from BeautifulSoup import BeautifulSoup
 import exporter
 
 class Migrator:
@@ -21,8 +22,9 @@ class Migrator:
         self.mappings = [] # keeps filename mappings and offsets
 
         # Rename folder
-        if unicode(self.torrentinfo['info']['name'],'utf-8') != os.path.basename(torrentfolder):
-            print "  Rename folder %s => %s" % (os.path.basename(torrentfolder), unicode(self.torrentinfo['info']['name'],'utf-8'))
+        torrentinfo_name = BeautifulSoup(self.torrentinfo['info']['name']).contents[0]
+        if torrentinfo_name != os.path.basename(torrentfolder):
+            print "  Rename folder %s => %s" % (os.path.basename(torrentfolder), torrentinfo_name)
 
         # Get a list of all old files
         oldfiles = []
@@ -37,7 +39,9 @@ class Migrator:
             if extension not in self.audioformats:
                 for newfile in self.torrentinfo['info']['files']:
                     if os.path.splitext(os.path.join(*newfile['path']))[-1] == extension and os.path.getsize(os.path.join(torrentfolder,oldfile)) == newfile['length']:
-                        self.mappings.append((oldfile,os.path.join(*newfile['path']),0))
+                        new = BeautifulSoup(os.path.join(*newfile['path'])).contents[0]
+                        oldfile = BeautifulSoup(oldfile).contents[0]
+                        self.mappings.append((oldfile,new,0))
         if len(self.mappings) > 0:
             print "  Rename non-audio files:"
             for mapping in self.mappings:
@@ -48,19 +52,20 @@ class Migrator:
         originalAudio = []
         for oldfile in oldfiles:
             if os.path.splitext(oldfile)[-1] in self.audioformats:
-                if type(oldfile) != unicode: oldfile = unicode(oldfile,'utf-8')
+                oldfile = BeautifulSoup(oldfile).contents[0]
                 originalAudio.append((oldfile,os.path.getsize(os.path.join(torrentfolder,oldfile))))
         originalAudio = sorted(originalAudio, key=itemgetter(0))
         newAudio = []
         for newfile in self.torrentinfo['info']['files']:
             if os.path.splitext(os.path.join(*newfile['path']))[-1] in self.audioformats:
-                newAudio.append((unicode(os.path.join(*newfile['path']),'utf-8'),newfile['length']))
+                audioFile = BeautifulSoup(os.path.join(*newfile['path'])).contents[0]
+                newAudio.append((audioFile,newfile['length']))
         newAudio = sorted(newAudio, key=itemgetter(0))
 
         # Audio file mapping
         for i in range(0,len(originalAudio)):
             if i > len(newAudio)-1: break
-            print "   #%d: %s => %s (%s => %s)" % (i+1, originalAudio[i][0], newAudio[i][0], humanize.humanize(originalAudio[i][1]), humanize.humanize(newAudio[i][1]))
+            print "   #%d: %s => %s (%s => %s)" % (i+1, originalAudio[i][0].encode('utf-8'), newAudio[i][0].encode('utf-8'), humanize.humanize(originalAudio[i][1]), humanize.humanize(newAudio[i][1]))
         userinput = raw_input("  Is this correct? (y/n) [y] ")
         if userinput in ("y","yes",""):
             for i in range(0,len(originalAudio)):

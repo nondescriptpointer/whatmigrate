@@ -84,10 +84,10 @@ class Main:
         if self.args.torrent:
             torrentinfo = self.grabFromInput(self.args.torrent)
         else:
-            searchterm = unicode(os.path.dirname(self.args.datadir),'utf-8')
+            searchterm = BeautifulSoup(os.path.dirname(self.args.datadir)).contents[0]
             torrentinfo = self.queryReplacement(searchterm)
         if torrentinfo:
-            self.migrator.execute(torrentinfo,unicode(self.args.datadir,'utf-8'))
+            self.migrator.execute(torrentinfo,BeautifulSoup(self.args.datadir).contents[0])
 
     # guided migration using torrent client to read 
     def guidedMigration(self):
@@ -112,7 +112,7 @@ class Main:
                 self.guidedExecute(torrentid,torrentfile,torrentfolder)
     def guidedExecute(self,torrentid,torrentfile,torrentfolder):
             basename = os.path.splitext(os.path.basename(torrentfile))[0]
-            basename = unicode(str(BeautifulSoup(basename,convertEntities=BeautifulSoup.HTML_ENTITIES)),'utf-8')
+            basename = BeautifulSoup(basename,convertEntities=BeautifulSoup.HTML_ENTITIES).contents[0]
             print basename
             parts = basename.split(" - ")
             searchstring = parts[0] + " - " + parts[1]
