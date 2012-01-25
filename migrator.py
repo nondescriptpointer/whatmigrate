@@ -22,7 +22,7 @@ class Migrator:
         self.mappings = [] # keeps filename mappings and offsets
 
         # Rename folder
-        torrentinfo_name = BeautifulSoup(self.torrentinfo['info']['name']).contents[0]
+        torrentinfo_name = unicode(BeautifulSoup(self.torrentinfo['info']['name']).contents[0])
         if torrentinfo_name != os.path.basename(torrentfolder):
             print "  Rename folder %s => %s" % (os.path.basename(torrentfolder), torrentinfo_name)
 
@@ -39,8 +39,8 @@ class Migrator:
             if extension not in self.audioformats:
                 for newfile in self.torrentinfo['info']['files']:
                     if os.path.splitext(os.path.join(*newfile['path']))[-1] == extension and os.path.getsize(os.path.join(torrentfolder,oldfile)) == newfile['length']:
-                        new = BeautifulSoup(os.path.join(*newfile['path'])).contents[0]
-                        oldfile = BeautifulSoup(oldfile).contents[0]
+                        new = unicode(BeautifulSoup(os.path.join(*newfile['path'])).contents[0])
+                        oldfile = unicode(BeautifulSoup(oldfile).contents[0])
                         self.mappings.append((oldfile,new,0))
         if len(self.mappings) > 0:
             print "  Rename non-audio files:"
@@ -52,20 +52,20 @@ class Migrator:
         originalAudio = []
         for oldfile in oldfiles:
             if os.path.splitext(oldfile)[-1] in self.audioformats:
-                oldfile = BeautifulSoup(oldfile).contents[0]
+                oldfile = unicode(BeautifulSoup(oldfile).contents[0])
                 originalAudio.append((oldfile,os.path.getsize(os.path.join(torrentfolder,oldfile))))
         originalAudio = sorted(originalAudio, key=itemgetter(0))
         newAudio = []
         for newfile in self.torrentinfo['info']['files']:
             if os.path.splitext(os.path.join(*newfile['path']))[-1] in self.audioformats:
-                audioFile = BeautifulSoup(os.path.join(*newfile['path'])).contents[0]
+                audioFile = unicode(BeautifulSoup(os.path.join(*newfile['path'])).contents[0])
                 newAudio.append((audioFile,newfile['length']))
         newAudio = sorted(newAudio, key=itemgetter(0))
 
         # Audio file mapping
         for i in range(0,len(originalAudio)):
             if i > len(newAudio)-1: break
-            print "   #%d: %s => %s (%s => %s)" % (i+1, originalAudio[i][0].encode('utf-8'), newAudio[i][0].encode('utf-8'), humanize.humanize(originalAudio[i][1]), humanize.humanize(newAudio[i][1]))
+            print "   #%d: %s => %s (%s => %s)" % (i+1, unicode(originalAudio[i][0]).encode('utf-8'), unicode(newAudio[i][0]).encode('utf-8'), humanize.humanize(originalAudio[i][1]), humanize.humanize(newAudio[i][1]))
         userinput = raw_input("  Is this correct? (y/n) [y] ")
         if userinput in ("y","yes",""):
             for i in range(0,len(originalAudio)):
@@ -75,7 +75,7 @@ class Migrator:
             print "  Correct renames (press enter/correct number):"
             for i in range(0,len(newAudio)):
                 if(i > len(originalAudio)-1): break
-                userinput = raw_input("   %s (%s) [#%d: %s (%s)] " % (newAudio[i][0].encode('utf-8'), humanize.humanize(newAudio[i][1]), i+1, originalAudio[i][0].encode('utf-8'), humanize.humanize(originalAudio[i][1])))
+                userinput = raw_input("   %s (%s) [#%d: %s (%s)] " % (unicode(newAudio[i][0]).encode('utf-8'), humanize.humanize(newAudio[i][1]), i+1, unicode(originalAudio[i][0]).encode('utf-8'), humanize.humanize(originalAudio[i][1])))
                 if userinput and userinput.isdigit() and int(userinput) in range(1,len(newAudio)+1):
                     mapto = int(userinput)-1
                 else:
