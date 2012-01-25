@@ -16,7 +16,7 @@ Dependencies:
 - Python 2.6/2.7
 - BeautifulSoup
 - argparse
-Debian/Ubuntu: sudo apt-get python python-argparse python-beautifulsoup
+Debian/Ubuntu: sudo apt-get install python python-argparse python-beautifulsoup
 
 Installation/usage:
 - Install dependencies
