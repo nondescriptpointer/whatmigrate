@@ -10,12 +10,12 @@ def export(torrentinfo,datafolder,mappings,destination):
             if not os.path.exists(os.path.join(destination,*newfile['path'][0:1])):
                 os.makedirs(unicode(BeautifulSoup(os.path.join(destination,*newfile['path'][0:-1])).contents[0]).encode('utf-8'))
         # create file
-        f = open(unicode(BeautifulSoup(os.path.join(destination,*newfile['path'])).contents[0]),'w+b')
+        f = open(unicode(BeautifulSoup(os.path.join(destination,*newfile['path'])).contents[0]).encode('utf-8'),'w+b')
         f.truncate(newfile['length'])
         # if mapping exists, write original data to the file
         for mapping in mappings:
             if mapping[1] == unicode(BeautifulSoup(os.path.join(*newfile['path'])).contents[0]):
-                target = unicode(BeautifulSoup(os.path.join(datafolder,mapping[0])).contents[0])
+                target = unicode(BeautifulSoup(os.path.join(datafolder,mapping[0])).contents[0]).encode('utf-8')
                 original = open(target,'rb')
                 write_length = newfile['length']
                 if mapping[2] < 0: original.seek(-mapping[2])
