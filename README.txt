@@ -12,11 +12,14 @@ figure out the usage.
 
 Please note that this script is still experimental, your results may vary. 
 
+Thanks to zen0 who gave me the idea to repad the files.
+
 Dependencies:
 - Python 2.6/2.7
 - BeautifulSoup
 - argparse
-Debian/Ubuntu: sudo apt-get install python python-argparse python-beautifulsoup
+- pycurl
+Debian/Ubuntu: sudo apt-get install python python-pycurl python-argparse python-beautifulsoup
 
 Installation/usage:
 - Install dependencies
