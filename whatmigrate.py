@@ -84,7 +84,7 @@ class Main:
         if self.args.torrent:
             torrentinfo = self.grabFromInput(self.args.torrent)
         else:
-            searchterm = unicode(BeautifulSoup(os.path.dirname(self.args.datadir)).contents[0])
+            searchterm = unicode(BeautifulSoup(os.path.dirname(os.path.join(self.args.datadir,''))).contents[0])
             torrentinfo = self.queryReplacement(searchterm)
         if torrentinfo:
             self.migrator.execute(torrentinfo,unicode(BeautifulSoup(self.args.datadir).contents[0]))
