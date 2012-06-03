@@ -1,3 +1,5 @@
+import locale
+
 # Humanize bytes
 def humanize(length,precision=1):
     abbrevs = (
@@ -14,3 +16,6 @@ def humanize(length,precision=1):
         if length >= factor:
             break
     return '%.*f %s' % (precision, length / factor, suffix)
+
+def dots(num):
+    return locale.format("%d", num, grouping=True)

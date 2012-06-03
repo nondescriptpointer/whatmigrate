@@ -48,7 +48,7 @@ class Migrator:
                 print "   %s => %s" % (mapping[0],mapping[1])
 
         # Audio files mapping
-        print "  Rename audio files. Old name => new name"
+        print "  Rename audio files. Old name => new name (old size => new size)"
         originalAudio = []
         for oldfile in oldfiles:
             if os.path.splitext(oldfile)[-1] in self.audioformats:
@@ -65,7 +65,7 @@ class Migrator:
         # Audio file mapping
         for i in range(0,len(originalAudio)):
             if i > len(newAudio)-1: break
-            print "   #%d: %s => %s (%s => %s)" % (i+1, unicode(originalAudio[i][0]).encode('utf-8'), unicode(newAudio[i][0]).encode('utf-8'), humanize.humanize(originalAudio[i][1]), humanize.humanize(newAudio[i][1]))
+            print "   #%d: %s => %s (%s B => %s B)" % (i+1, unicode(originalAudio[i][0]).encode('utf-8'), unicode(newAudio[i][0]).encode('utf-8'), humanize.dots(originalAudio[i][1]), humanize.dots(newAudio[i][1]))
         userinput = raw_input("  Is this correct? (y/n) [y] ")
         if userinput in ("y","yes",""):
             for i in range(0,len(originalAudio)):
@@ -75,7 +75,7 @@ class Migrator:
             print "  Correct renames (press enter/correct number):"
             for i in range(0,len(newAudio)):
                 if(i > len(originalAudio)-1): break
-                userinput = raw_input("   %s (%s) [#%d: %s (%s)] " % (unicode(newAudio[i][0]).encode('utf-8'), humanize.humanize(newAudio[i][1]), i+1, unicode(originalAudio[i][0]).encode('utf-8'), humanize.humanize(originalAudio[i][1])))
+                userinput = raw_input("   %s (%s) [#%d: %s (%s)] " % (unicode(newAudio[i][0]).encode('utf-8'), humanize.dots(newAudio[i][1]), i+1, unicode(originalAudio[i][0]).encode('utf-8'), humanize.dots(originalAudio[i][1])))
                 if userinput and userinput.isdigit() and int(userinput) in range(1,len(newAudio)+1):
                     mapto = int(userinput)-1
                 else:
@@ -88,7 +88,7 @@ class Migrator:
         sumOld = 0
         for old in originalAudio: sumOld += old[1]
         if sumNew != sumOld:
-            print "  Filesizes do not match (original: %d, new: %d)" % (sumOld,sumNew)
+            print "  Filesizes do not match (original: %s B, new: %s B)" % (humanize.dots(sumOld),humanize.dots(sumNew))
             # add padding to files
             print "  Changing padding on files"
             self.simpleRepad(originalAudio,newAudio)

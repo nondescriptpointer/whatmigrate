@@ -1,6 +1,6 @@
 #!/usr/bin/python2
 
-import os, re, ConfigParser, argparse, sys
+import os, re, ConfigParser, argparse, sys, locale
 import exporter, siteconnection, clientconnection, migrator
 from BeautifulSoup import BeautifulSoup
 try: import readline # not supported on all platforms
@@ -8,6 +8,9 @@ except ImportError: pass
 
 class Main:
     def __init__(self): 
+        # take default locale
+        locale.setlocale(locale.LC_ALL, '')
+
         # parse arguments
         parser = argparse.ArgumentParser(description='A What.CD tool to help you with migrating your old data to the new torrent.')
         group = parser.add_argument_group('manual migration')
