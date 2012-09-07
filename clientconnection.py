@@ -2,7 +2,7 @@ import xmlrpclib, socket, sys
 
 class Rtorrent:
     def __init__(self,proxy_uri):
-        self.errorMessage = 'Tracker: [Failure reason "unregistered torrent"]'
+        self.errorMessage = 'Tracker: [Failure reason "Unregistered torrent"]'
         self.server = xmlrpclib.ServerProxy(proxy_uri)
 
     def unregistered_torrents_iter(self):
